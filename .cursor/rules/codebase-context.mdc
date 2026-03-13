@@ -1,0 +1,122 @@
+---
+description: DataSneeq project context - architecture, structure, and key patterns
+alwaysApply: true
+---
+
+# DataSneeq Codebase Context
+
+## Project Overview
+
+**DataSneeq** is a full-stack Dynamic Excel Data Upload and Mapping Portal. Users upload Excel files, map columns to PostgreSQL tables, validate data, and perform batch inserts. Supports .xlsx (ClosedXML) and .xls (ExcelDataReader) formats.
+
+**Tech stack:** .NET 8 Web API | Next.js 16 | TypeScript | Tailwind | shadcn/ui | TanStack Query | ClosedXML | ExcelDataReader | Npgsql | EF Core (SQLite for templates)
+
+**Ports:** Backend `5041` | Frontend `3000` | API base `NEXT_PUBLIC_API_URL` → `http://localhost:5041/api`
+
+---
+
+## Backend Structure (Clean Architecture)
+
+```
+backend/src/
+  DataSneeq.Api/              # HTTP layer
+    Controllers/              # ExcelUpload, Schema, Mapping, Upload, MappingTemplate
+    Middleware/               # ExceptionHandlingMiddleware
+    Program.cs, appsettings.json
+
+  DataSneeq.Application/     # Business logic
+    Interfaces/               # IExcelParsingService, IDatabaseProvider, IColumnMatchingService,
+                             # IForeignKeyResolutionService, IDataValidationService, IMappingTemplateService,
+                             # IUploadSessionService, IUploadOrchestrationService
+    Services/                 # ColumnMatching, DataValidation, ForeignKeyResolution, MappingTemplate,
+                             # UploadSession, UploadOrchestration
+    DTOs/                     # All request/response DTOs
+
+  DataSneeq.Domain/           # Core models
+    Models/                   # ExcelFileData, TableSchema, ColumnSchema, ForeignKeyInfo, ColumnMapping,
+                             # LookupRule, ValidationError, MappingTemplate, UploadSession, BatchInsertResult
+    Enums/                    # ValidationErrorType, DatabaseProviderType
+
+  DataSneeq.Infrastructure/  # External concerns
+    Database/Providers/       # PostgreSqlDatabaseProvider (IDatabaseProvider)
+    Excel/                   # ExcelParsingService (ClosedXML + ExcelDataReader for .xls)
+    Persistence/              # AppDbContext (SQLite), mapping templates
+    DependencyInjection.cs    # Registers all services
+```
+
+**Dependency flow:** Api → Application + Infrastructure → Domain
+
+---
+
+## Key Backend Conventions
+
+- **Excel parsing:** Detect format by magic bytes (`D0CF11E0` = OLE2/.xls → ExcelDataReader; else ClosedXML).
+- **Schema discovery:** Raw SQL vs `information_schema`. Collect all FKs before calling `InferDisplayColumnAsync` (avoid NpgsqlOperationInProgressException).
+- **Column matching:** FuzzySharp + exact/normalized/abbreviation pipeline. Confidence ≥ 0.7 for auto-suggest.
+- **Upload session:** `IUploadSessionService` (IMemoryCache), 30-minute expiry.
+- **Templates:** Stored in SQLite via EF Core; JSON-serialized mappings and lookup rules.
+
+---
+
+## Frontend Structure
+
+```
+frontend/src/
+  app/                        # layout.tsx (QueryProvider), page.tsx (WizardContainer)
+  components/
+    wizard/                   # StepIndicator, WizardContainer (state machine)
+    upload/                   # FileUploader, ExcelPreview
+    connection/               # ConnectionForm, TableSelector
+    mapping/                  # ColumnMapper, MappingRow, TemplateSelector
+    preview/                 # PreviewTable, ValidationErrors, LookupResolutions, ConfirmUpload
+    templates/               # SaveTemplateDialog
+    ui/                      # shadcn primitives (button, card, select, table, badge, dialog, etc.)
+  hooks/                      # useUploadExcel, useSchema, useMappingSuggestions, usePreview,
+                             # useCommit, useTemplates
+  lib/                        # api.ts (axios client)
+  types/                      # All TypeScript interfaces mirroring backend DTOs
+  providers/                  # QueryProvider (TanStack Query)
+```
+
+---
+
+## API Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | /api/upload/excel | Upload file → fileId, columns, sampleRows |
+| POST | /api/schema/connect | Test connection, return tables |
+| GET | /api/schema/tables?connectionString= | List tables |
+| GET | /api/schema/tables/{table}/columns?connectionString= | Table schema (columns, PKs, FKs) |
+| POST | /api/mapping/suggest | Auto-suggest column mappings |
+| POST | /api/upload/preview | Preview with validation errors |
+| POST | /api/upload/commit | Batch insert |
+| POST | /api/mapping-templates | Save template |
+| GET | /api/mapping-templates | List templates |
+| DELETE | /api/mapping-templates/{id} | Delete template |
+
+**Note:** Table names can include schema (e.g. `public.students`). Connection string is passed as query param for GET; in body for POST.
+
+---
+
+## Key Types / DTOs
+
+- **ExcelUploadResult:** fileId, columns, rowCount, sampleRows, fileName
+- **TableSchema:** schemaName, tableName, columns[], foreignKeys[], primaryKeys[]
+- **ColumnMapping:** excelColumn, databaseColumn
+- **LookupRule:** foreignKeyColumn, lookupTable, lookupDisplayColumn, autoCreate
+- **MappingConfig:** fileId, connectionString, tableName, mappings[], lookupRules[]
+- **UploadPreview:** rows[], errors[], lookupResolutions[], totalRows, validRows, errorRows
+- **UploadCommitResult:** success, insertedCount, skippedCount, lookupRecordsCreated, warnings[]
+
+---
+
+## Wizard Flow (Frontend)
+
+1. **Upload** → FileUploader → onComplete(uploadResult)
+2. **Connect** → ConnectionForm → onComplete(connStr, table, schema)
+3. **Map** → ColumnMapper → onComplete(mappings, lookupRules)
+4. **Preview** → PreviewTable → onComplete(preview)
+5. **Confirm** → ConfirmUpload → commit → onReset()
+
+State is held in WizardContainer; each step receives props and callsbacks.

@@ -1,0 +1,17 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# DataSneeq SQLite (backend)
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+
+# Docker
+.docker/

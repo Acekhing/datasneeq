@@ -1,0 +1,9 @@
+namespace DataSneeq.Application.DTOs;
+
+public class ForeignKeyDto
+{
+    public string ColumnName { get; set; } = string.Empty;
+    public string ReferencedTable { get; set; } = string.Empty;
+    public string ReferencedColumn { get; set; } = string.Empty;
+    public string? LookupDisplayColumn { get; set; }
+}

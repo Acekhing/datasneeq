@@ -1,0 +1,28 @@
+services:
+  datasneeq-api:
+    build: ./backend
+    container_name: datasneeq-api
+    ports:
+      - "5041:5041"
+    volumes:
+      - datasneeq-data:/app/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5041
+      - ConnectionStrings__AppDb=Data Source=/app/data/datasneeq.db
+      - Cors__AllowedOrigins__0=https://portal.stpis.edu.gh
+      - Cors__AllowedOrigins__1=http://portal.stpis.edu.gh
+
+  datasneeq-frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://portal.stpis.edu.gh/datasneeq-api/api
+    container_name: datasneeq-frontend
+    ports:
+      - "3001:3000"
+    depends_on:
+      - datasneeq-api
+
+volumes:
+  datasneeq-data:

@@ -64,6 +64,34 @@ The app starts at `http://localhost:3000`.
 | GET | `/api/mapping-templates` | List saved templates |
 | DELETE | `/api/mapping-templates/{id}` | Delete template |
 
+## Docker Deployment (with nginx)
+
+DataSneeq expects to run alongside nginx in Docker. Both must share the `portal-net` network.
+
+1. Create the shared network (once):
+   ```bash
+   docker network create portal-net
+   ```
+
+2. Add your nginx service to `portal-net` in its compose file:
+   ```yaml
+   services:
+     nginx:
+       # ...
+       networks:
+         - portal-net
+   networks:
+     portal-net:
+       external: true
+   ```
+
+3. Include the DataSneeq location blocks from `nginx-datasneeq.conf` in your nginx config (before `location /`).
+
+4. Start DataSneeq:
+   ```bash
+   docker compose up -d
+   ```
+
 ## Architecture
 
 ```

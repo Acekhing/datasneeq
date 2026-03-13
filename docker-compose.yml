@@ -2,6 +2,8 @@ services:
   datasneeq-api:
     build: ./backend
     container_name: datasneeq-api
+    networks:
+      - portal-net
     ports:
       - "5041:5041"
     volumes:
@@ -23,6 +25,12 @@ services:
       - "3001:3000"
     depends_on:
       - datasneeq-api
+    networks:
+      - portal-net
+
+networks:
+  portal-net:
+    external: true
 
 volumes:
   datasneeq-data:

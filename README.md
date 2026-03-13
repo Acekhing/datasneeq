@@ -68,28 +68,58 @@ The app starts at `http://localhost:3000`.
 
 DataSneeq expects to run alongside nginx in Docker. Both must share the `portal-net` network.
 
+### Layout A: Full repo (standard)
+
+Clone the full repo. `docker-compose.yml` and `backend/`, `frontend/` are in the same directory:
+
+```
+/opt/app/datasneeq/
+├── docker-compose.yml
+├── backend/
+│   ├── Dockerfile
+│   └── src/...
+└── frontend/
+    ├── Dockerfile
+    └── ...
+```
+
+### Layout B: Sibling directories
+
+Use `docker-compose.sibling.yml` when `backend/` and `frontend/` are siblings of the compose file:
+
+```
+/opt/app/
+├── datasneeq/
+│   ├── docker-compose.sibling.yml
+│   └── nginx-datasneeq.conf
+├── backend/
+│   ├── Dockerfile
+│   └── src/...
+└── frontend/
+    ├── Dockerfile
+    └── ...
+```
+
+### Deployment steps
+
 1. Create the shared network (once):
    ```bash
    docker network create portal-net
    ```
 
-2. Add your nginx service to `portal-net` in its compose file:
-   ```yaml
-   services:
-     nginx:
-       # ...
-       networks:
-         - portal-net
-   networks:
-     portal-net:
-       external: true
-   ```
+2. Add your nginx service to `portal-net` in its compose file.
 
 3. Include the DataSneeq location blocks from `nginx-datasneeq.conf` in your nginx config (before `location /`).
 
 4. Start DataSneeq:
    ```bash
-   docker compose up -d
+   # Layout A (full repo):
+   cd /opt/app/datasneeq
+   docker compose up -d --build
+
+   # Layout B (sibling dirs):
+   cd /opt/app/datasneeq
+   docker compose -f docker-compose.sibling.yml up -d --build
    ```
 
 ## Architecture

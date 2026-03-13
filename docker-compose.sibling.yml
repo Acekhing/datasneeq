@@ -1,11 +1,21 @@
-# Run from repo root (directory containing backend/ and frontend/).
-# Structure: <repo>/docker-compose.yml, <repo>/backend/Dockerfile, <repo>/frontend/Dockerfile
+# Use this when backend/ and frontend/ are SIBLINGS to this compose file.
+# Example layout:
+#   /opt/app/
+#     datasneeq/          <- place this file here
+#       docker-compose.sibling.yml
+#       nginx-datasneeq.conf
+#     backend/
+#       Dockerfile
+#       src/...
+#     frontend/
+#       Dockerfile
+#       src/...
+#
+# Run: cd /opt/app/datasneeq && docker compose -f docker-compose.sibling.yml up -d --build
 
 services:
   datasneeq-api:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    build: ../backend
     container_name: datasneeq-api
     networks:
       - portal-net
@@ -22,8 +32,7 @@ services:
 
   datasneeq-frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: ../frontend
       args:
         NEXT_PUBLIC_API_URL: https://portal.stpis.edu.gh/datasneeq-api/api
     container_name: datasneeq-frontend
